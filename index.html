@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clinical Shifts Plugin</title>
+    <style>
+        /* --- Core Variables & Reset --- */
+        :root {
+            --primary-teal: #00a896;
+            --primary-yellow: #f4d35e;
+            --primary-blue: #4a90e2;
+            --date-red: #ff5a5f;
+            --bg-color: #ffffff;
+            --text-dark: #1f2937;
+            --text-medium: #4b5563;
+            --text-light: #9ca3af;
+            --border-color: #f3f4f6;
+            --btn-hover: #008f7f;
+            --btn-disabled: #9ca3af;
+            --overlay-bg: rgba(0, 0, 0, 0.4);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5; 
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            box-sizing: border-box;
+            min-height: 100vh;
+        }
+
+        /* --- Main Card Container --- */
+        .plugin-card {
+            background-color: var(--bg-color);
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            width: 100%;
+            max-width: 380px;
+            overflow: hidden;
+            position: relative;
+            height: fit-content;
+        }
+
+        /* --- Header --- */
+        .header {
+            padding: 24px 24px 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .header h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-top: 4px;
+        }
+
+        /* --- Calendar View --- */
+        .calendar-wrapper {
+            padding: 0 20px 24px 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 10px;
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            margin-bottom: 8px;
+            justify-items: center;
+        }
+
+        .weekday {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            row-gap: 8px;
+            justify-items: center;
+        }
+
+        .day {
+            width: 32px;
+            height: 32px;
+            font-size: 13px;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            cursor: default;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+
+        /* Only interactive days get pointer cursor */
+        .day.js-trigger-modal {
+            cursor: pointer;
+        }
+
+        .day.js-trigger-modal:hover {
+            background-color: #f3f4f6;
+        }
+
+        .day.selected {
+            background-color: var(--text-dark);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .day.has-shift::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            width: 4px;
+            height: 4px;
+            background-color: var(--primary-teal);
+            border-radius: 50%;
+        }
+        
+        .day.has-shift.selected::after {
+            background-color: #fff;
+        }
+
+        .day.other-month {
+            color: #e5e7eb;
+        }
+
+        /* --- Shift List --- */
+        .shift-list {
+            list-style: none;
+            padding: 0 20px 20px 20px;
+            margin: 0;
+        }
+
+        .shift-item {
+            display: flex;
+            align-items: stretch;
+            background: #fff;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            border-radius: 8px; 
+        }
+
+        .shift-item:hover {
+            background-color: #f9fafb;
+            padding-left: 8px; 
+            padding-right: 8px;
+            margin-left: -8px;
+            margin-right: -8px;
+        }
+
+        .shift-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Status Bar (Teal/Yellow/Blue) */
+        .status-bar {
+            width: 6px;
+            border-radius: 4px;
+            margin-right: 16px;
+            flex-shrink: 0;
+            background-image: repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 4px,
+                rgba(255, 255, 255, 0.3) 4px,
+                rgba(255, 255, 255, 0.3) 8px
+            );
+        }
+
+        .status-teal { background-color: var(--primary-teal); }
+        .status-yellow { background-color: var(--primary-yellow); }
+        .status-blue { background-color: var(--primary-blue); }
+
+        /* Shift Details */
+        .shift-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .shift-role {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin: 0 0 4px 0;
+        }
+
+        .shift-meta {
+            font-size: 13px;
+            color: var(--text-medium);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .location-icon {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        /* Date Badge */
+        .date-badge {
+            flex-shrink: 0;
+            width: 48px;
+            height: 52px;
+            border-radius: 12px;
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            overflow: hidden;
+            text-align: center;
+            margin-left: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .date-month {
+            background-color: var(--date-red);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 0;
+        }
+
+        .date-day {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        /* --- Modal / Popup Styles --- */
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--overlay-bg);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: flex-end; 
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+            border-radius: 20px;
+        }
+
+        .modal-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background-color: white;
+            width: 100%;
+            border-radius: 24px 24px 0 0; 
+            padding: 24px;
+            box-sizing: border-box;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .modal-backdrop.active .modal-card {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .modal-title-group h3 {
+            margin: 0;
+            font-size: 20px;
+            color: var(--text-dark);
+        }
+
+        .modal-subtitle {
+            color: var(--text-medium);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .btn-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-light);
+            padding: 4px;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background-color: #f9fafb;
+            border-radius: 12px;
+        }
+
+        .detail-icon {
+            font-size: 20px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .detail-text h4 {
+            margin: 0;
+            font-size: 12px;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-text p {
+            margin: 2px 0 0 0;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        /* Swap Button */
+        .btn-swap {
+            background-color: var(--primary-teal);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-swap:hover {
+            background-color: var(--btn-hover);
+        }
+        
+        .btn-swap:disabled {
+            background-color: var(--btn-disabled);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .loading-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Status Toast inside Modal */
+        .status-message {
+            font-size: 13px;
+            text-align: center;
+            margin-top: -8px;
+            min-height: 20px; /* Prevent layout jump */
+            font-weight: 500;
+        }
+        .status-success { color: #10b981; }
+        .status-error { color: #ef4444; }
+
+    </style>
+</head>
+<body>
+
+    <div class="plugin-card">
+        <div class="header">
+            <div>
+                <h2>My Shifts</h2>
+                <div class="subtitle">December 2025</div>
+            </div>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </div>
+
+        <div class="calendar-wrapper">
+            <div class="calendar-weekdays">
+                <div class="weekday">Mon</div>
+                <div class="weekday">Tue</div>
+                <div class="weekday">Wed</div>
+                <div class="weekday">Thu</div>
+                <div class="weekday">Fri</div>
+                <div class="weekday">Sat</div>
+                <div class="weekday">Sun</div>
+            </div>
+            <div class="calendar-days">
+                <div class="day">1</div>
+                <div class="day">2</div>
+                <div class="day">3</div>
+                <div class="day">4</div>
+                
+                <div class="day has-shift js-trigger-modal" 
+                     data-title="ICU Night Rotation" 
+                     data-time="20:00 - 08:00" 
+                     data-loc="Medical City - ICU Wing" 
+                     data-date="Dec 05">5</div>
+
+                <div class="day has-shift js-trigger-modal" 
+                     data-title="ER Triage" 
+                     data-time="07:00 - 15:00" 
+                     data-loc="Charlton Med - ER" 
+                     data-date="Dec 06">6</div>
+
+                <div class="day">7</div>
+
+                <div class="day has-shift js-trigger-modal" 
+                     data-title="Pediatrics Rounding" 
+                     data-time="08:00 - 16:00" 
+                     data-loc="Childrens Health" 
+                     data-date="Dec 08">8</div>
+
+                <div class="day">9</div>
+                <div class="day">10</div>
+                <div class="day">11</div>
+                <div class="day">12</div>
+                <div class="day">13</div>
+                <div class="day">14</div>
+                <div class="day">15</div>
+                <div class="day">16</div>
+                <div class="day">17</div>
+                <div class="day">18</div>
+                <div class="day">19</div>
+                <div class="day">20</div>
+                <div class="day">21</div>
+                <div class="day">22</div>
+                <div class="day">23</div>
+                <div class="day">24</div>
+                <div class="day">25</div>
+                <div class="day">26</div>
+                <div class="day">27</div>
+                <div class="day">28</div>
+                <div class="day">29</div>
+                <div class="day">30</div>
+                <div class="day">31</div>
+                <div class="day other-month">1</div>
+                <div class="day other-month">2</div>
+                <div class="day other-month">3</div>
+                <div class="day other-month">4</div>
+            </div>
+        </div>
+
+        <ul class="shift-list">
+            <li class="shift-item js-trigger-modal" 
+                data-title="ICU Night Rotation" 
+                data-time="20:00 - 08:00" 
+                data-loc="Medical City - ICU Wing" 
+                data-date="Dec 05">
+                <div class="status-bar status-teal"></div>
+                <div class="shift-content">
+                    <div class="shift-role">ICU Night Rotation</div>
+                    <div class="shift-meta">
+                        <span class="location-icon">📍</span> Medical City - ICU Wing
+                    </div>
+                    <div class="shift-meta" style="margin-top: 2px;">
+                        <span>⏰ 20:00 - 08:00 (12h)</span>
+                    </div>
+                </div>
+                <div class="date-badge">
+                    <div class="date-month">DEC</div>
+                    <div class="date-day">05</div>
+                </div>
+            </li>
+
+            <li class="shift-item js-trigger-modal" 
+                data-title="ER Triage" 
+                data-time="07:00 - 15:00" 
+                data-loc="Charlton Med - ER" 
+                data-date="Dec 06">
+                <div class="status-bar status-yellow"></div>
+                <div class="shift-content">
+                    <div class="shift-role">ER Triage</div>
+                    <div class="shift-meta">
+                        <span class="location-icon">📍</span> Charlton Med - ER
+                    </div>
+                    <div class="shift-meta" style="margin-top: 2px;">
+                        <span>⏰ 07:00 - 15:00 (8h)</span>
+                    </div>
+                </div>
+                <div class="date-badge">
+                    <div class="date-month">DEC</div>
+                    <div class="date-day">06</div>
+                </div>
+            </li>
+
+            <li class="shift-item js-trigger-modal" 
+                data-title="Pediatrics Rounding" 
+                data-time="08:00 - 16:00" 
+                data-loc="Childrens Health" 
+                data-date="Dec 08">
+                <div class="status-bar status-blue"></div>
+                <div class="shift-content">
+                    <div class="shift-role">Pediatrics Rounding</div>
+                    <div class="shift-meta">
+                        <span class="location-icon">📍</span> Children's Health
+                    </div>
+                    <div class="shift-meta" style="margin-top: 2px;">
+                        <span>⏰ 08:00 - 16:00 (8h)</span>
+                    </div>
+                </div>
+                <div class="date-badge">
+                    <div class="date-month">DEC</div>
+                    <div class="date-day">08</div>
+                </div>
+            </li>
+        </ul>
+
+        <div class="modal-backdrop" id="shiftModal">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <div class="modal-title-group">
+                        <h3 id="modalTitle">Shift Name</h3>
+                        <div class="modal-subtitle" id="modalDate">Date</div>
+                    </div>
+                    <button class="btn-close" id="btnCloseModal">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-icon">🏥</div>
+                    <div class="detail-text">
+                        <h4>Location</h4>
+                        <p id="modalLocation">Location Name</p>
+                    </div>
+                </div>
+
+                <div class="detail-row">
+                    <div class="detail-icon">⏰</div>
+                    <div class="detail-text">
+                        <h4>Time</h4>
+                        <p id="modalTime">00:00 - 00:00</p>
+                    </div>
+                </div>
+                
+                <div class="status-message" id="statusMessage"></div>
+
+                <button class="btn-swap" id="swapBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+                    <span>Request Shift Swap</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Elements
+            const modal = document.getElementById('shiftModal');
+            const swapBtn = document.getElementById('swapBtn');
+            const closeBtn = document.getElementById('btnCloseModal');
+            const statusMsg = document.getElementById('statusMessage');
+            
+            // Text Elements
+            const titleEl = document.getElementById('modalTitle');
+            const timeEl = document.getElementById('modalTime');
+            const locEl = document.getElementById('modalLocation');
+            const dateEl = document.getElementById('modalDate');
+
+            // --- 1. Event Delegation for Opening Modal ---
+            // This is safer than onclick="..." inside the HTML
+            document.body.addEventListener('click', (e) => {
+                const trigger = e.target.closest('.js-trigger-modal');
+                if (trigger) {
+                    // Get data from attributes
+                    const data = trigger.dataset;
+                    openModal(data.title, data.
