@@ -103,17 +103,12 @@
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            cursor: default;
+            cursor: pointer;
             position: relative;
             transition: background-color 0.2s;
         }
 
-        /* Only interactive days get pointer cursor */
-        .day.js-trigger-modal {
-            cursor: pointer;
-        }
-
-        .day.js-trigger-modal:hover {
+        .day:hover {
             background-color: #f3f4f6;
         }
 
@@ -433,27 +428,10 @@
                 <div class="day">2</div>
                 <div class="day">3</div>
                 <div class="day">4</div>
-                
-                <div class="day has-shift js-trigger-modal" 
-                     data-title="ICU Night Rotation" 
-                     data-time="20:00 - 08:00" 
-                     data-loc="Medical City - ICU Wing" 
-                     data-date="Dec 05">5</div>
-
-                <div class="day has-shift js-trigger-modal" 
-                     data-title="ER Triage" 
-                     data-time="07:00 - 15:00" 
-                     data-loc="Charlton Med - ER" 
-                     data-date="Dec 06">6</div>
-
+                <div class="day has-shift" onclick="openModal('ICU Night Rotation', '20:00 - 08:00', 'Medical City - ICU Wing', 'Dec 05')">5</div>
+                <div class="day has-shift" onclick="openModal('ER Triage', '07:00 - 15:00', 'Charlton Med - ER', 'Dec 06')">6</div>
                 <div class="day">7</div>
-
-                <div class="day has-shift js-trigger-modal" 
-                     data-title="Pediatrics Rounding" 
-                     data-time="08:00 - 16:00" 
-                     data-loc="Childrens Health" 
-                     data-date="Dec 08">8</div>
-
+                <div class="day has-shift" onclick="openModal('Pediatrics Rounding', '08:00 - 16:00', 'Childrens Health', 'Dec 08')">8</div>
                 <div class="day">9</div>
                 <div class="day">10</div>
                 <div class="day">11</div>
@@ -485,11 +463,7 @@
         </div>
 
         <ul class="shift-list">
-            <li class="shift-item js-trigger-modal" 
-                data-title="ICU Night Rotation" 
-                data-time="20:00 - 08:00" 
-                data-loc="Medical City - ICU Wing" 
-                data-date="Dec 05">
+            <li class="shift-item" onclick="openModal('ICU Night Rotation', '20:00 - 08:00', 'Medical City - ICU Wing', 'Dec 05')">
                 <div class="status-bar status-teal"></div>
                 <div class="shift-content">
                     <div class="shift-role">ICU Night Rotation</div>
@@ -506,11 +480,7 @@
                 </div>
             </li>
 
-            <li class="shift-item js-trigger-modal" 
-                data-title="ER Triage" 
-                data-time="07:00 - 15:00" 
-                data-loc="Charlton Med - ER" 
-                data-date="Dec 06">
+            <li class="shift-item" onclick="openModal('ER Triage', '07:00 - 15:00', 'Charlton Med - ER', 'Dec 06')">
                 <div class="status-bar status-yellow"></div>
                 <div class="shift-content">
                     <div class="shift-role">ER Triage</div>
@@ -527,11 +497,7 @@
                 </div>
             </li>
 
-            <li class="shift-item js-trigger-modal" 
-                data-title="Pediatrics Rounding" 
-                data-time="08:00 - 16:00" 
-                data-loc="Childrens Health" 
-                data-date="Dec 08">
+            <li class="shift-item" onclick="openModal('Pediatrics Rounding', '08:00 - 16:00', 'Childrens Health', 'Dec 08')">
                 <div class="status-bar status-blue"></div>
                 <div class="shift-content">
                     <div class="shift-role">Pediatrics Rounding</div>
@@ -556,7 +522,7 @@
                         <h3 id="modalTitle">Shift Name</h3>
                         <div class="modal-subtitle" id="modalDate">Date</div>
                     </div>
-                    <button class="btn-close" id="btnCloseModal">
+                    <button class="btn-close" onclick="closeModal()">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
@@ -579,7 +545,7 @@
                 
                 <div class="status-message" id="statusMessage"></div>
 
-                <button class="btn-swap" id="swapBtn">
+                <button class="btn-swap" id="swapBtn" onclick="triggerSwap()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
                     <span>Request Shift Swap</span>
                 </button>
@@ -588,24 +554,130 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Elements
-            const modal = document.getElementById('shiftModal');
-            const swapBtn = document.getElementById('swapBtn');
-            const closeBtn = document.getElementById('btnCloseModal');
-            const statusMsg = document.getElementById('statusMessage');
+        // --- PRODUCTION CONFIGURATION ---
+        const CONFIG = {
+            // FIXED 1: Use the standard public API endpoint
+            // If you are in the EU, use 'https://backend.staffbase.de/api/notifications'
+            apiUrl: 'https://backend.staffbase.com/api/notifications', 
             
-            // Text Elements
-            const titleEl = document.getElementById('modalTitle');
-            const timeEl = document.getElementById('modalTime');
-            const locEl = document.getElementById('modalLocation');
-            const dateEl = document.getElementById('modalDate');
+            // FIXED 2: INSERT YOUR API TOKEN HERE
+            // Go to Staffbase Settings -> API Access -> Create Token
+            apiToken: 'YOUR_API_TOKEN_HERE', 
+            
+            enableDemoFallback: false // Turn this off to see real errors
+        };
 
-            // --- 1. Event Delegation for Opening Modal ---
-            // This is safer than onclick="..." inside the HTML
-            document.body.addEventListener('click', (e) => {
-                const trigger = e.target.closest('.js-trigger-modal');
-                if (trigger) {
-                    // Get data from attributes
-                    const data = trigger.dataset;
-                    openModal(data.title, data.
+        // --- UI Logic ---
+        const modal = document.getElementById('shiftModal');
+        const swapBtn = document.getElementById('swapBtn');
+        const statusMsg = document.getElementById('statusMessage');
+
+        function openModal(title, time, location, date) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalTime').innerText = time;
+            document.getElementById('modalLocation').innerText = location;
+            document.getElementById('modalDate').innerText = date;
+            
+            // Reset UI state
+            statusMsg.innerText = '';
+            statusMsg.className = 'status-message';
+            swapBtn.disabled = false;
+            swapBtn.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/></svg>
+                <span>Request Shift Swap</span>
+            `;
+
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        // Close on clicking backdrop
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+
+        // --- Notification Service ---
+        const NotificationService = {
+            async sendSwapRequest() {
+                
+                // FIXED 3: Payload updated for public API structure
+                // Note: 'accessorIds' is usually internal. Public API often uses 'recipients'.
+                // If your API call fails with 400 Bad Request, change 'accessorIds' to 'recipients'.
+                const payload = {
+                    "recipients": [ "68362d155187c875bbb106d8" ], // Ensure this ID is valid
+                    "content": {
+                        "en_US": { "title": "Shift Swap", "text": "Shift Swap Initiated" },
+                        "de_DE": { "title": "Shift Swap", "text": "New Learning Module available" }
+                    }
+                };
+
+                // FIXED 4: Added Authorization Header logic
+                const response = await fetch(CONFIG.apiUrl, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        // This creates the Basic Auth header required by Staffbase
+                        'Authorization': 'Basic ' + btoa(CONFIG.apiToken + ':') 
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Server returned ${response.status}: ${errorText}`);
+                }
+                return response;
+            }
+        };
+
+        // --- Main Action ---
+        async function triggerSwap() {
+            // 1. Set Loading State
+            swapBtn.disabled = true;
+            swapBtn.innerHTML = `<span class="loading-spinner"></span> Sending Request...`;
+            statusMsg.innerText = '';
+            statusMsg.className = 'status-message';
+
+            try {
+                // 2. Attempt API Call
+                await NotificationService.sendSwapRequest();
+                
+                // 3. Success State
+                handleSuccess();
+
+            } catch (error) {
+                console.error("Swap Request Failed:", error);
+
+                // 4. Fallback Handling
+                if (CONFIG.enableDemoFallback && (error.message.includes('Failed to fetch') || error.message.includes('403') || error.message.includes('401'))) {
+                     console.warn("Using Demo Fallback.");
+                     handleSuccess();
+                     return;
+                }
+
+                // 5. Error State
+                swapBtn.disabled = false;
+                swapBtn.innerHTML = `
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                    <span>Retry Request</span>
+                `;
+                // Show actual error for debugging
+                statusMsg.innerText = 'Request failed. Check console for details.';
+                statusMsg.className = 'status-message status-error';
+            }
+        }
+
+        function handleSuccess() {
+            swapBtn.innerHTML = `<span>✔ Request Sent</span>`;
+            statusMsg.className = 'status-message status-success';
+            statusMsg.innerText = 'Manager notified successfully.';
+            setTimeout(() => { closeModal(); }, 2000);
+        }
+    </script>
+</body>
+</html>
