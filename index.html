@@ -468,7 +468,7 @@
                 <div class="shift-content">
                     <div class="shift-role">ICU Night Rotation</div>
                     <div class="shift-meta">
-                        <span class="location-icon">📍</span> Medical City - ICU Wing
+                        <span class="location-icon">📍</span> New Berlin - ICU Wing
                     </div>
                     <div class="shift-meta" style="margin-top: 2px;">
                         <span>⏰ 20:00 - 08:00 (12h)</span>
@@ -480,12 +480,12 @@
                 </div>
             </li>
 
-            <li class="shift-item" onclick="openModal('ER Triage', '07:00 - 15:00', 'Charlton Med - ER', 'Dec 06')">
+            <li class="shift-item" onclick="openModal('ER Triage', '07:00 - 15:00', 'Prairie Hospital - ER', 'Dec 06')">
                 <div class="status-bar status-yellow"></div>
                 <div class="shift-content">
                     <div class="shift-role">ER Triage</div>
                     <div class="shift-meta">
-                        <span class="location-icon">📍</span> Charlton Med - ER
+                        <span class="location-icon">📍</span> Moorland Reserve - ER
                     </div>
                     <div class="shift-meta" style="margin-top: 2px;">
                         <span>⏰ 07:00 - 15:00 (8h)</span>
@@ -554,17 +554,13 @@
     </div>
 
     <script>
-        // --- PRODUCTION CONFIGURATION ---
+        // --- CONFIGURATION ---
         const CONFIG = {
-            // FIXED 1: Use the standard public API endpoint
-            // If you are in the EU, use 'https://backend.staffbase.de/api/notifications'
+            // Updated to the Public API backend to avoid CORS issues
             apiUrl: 'https://backend.staffbase.com/api/notifications', 
             
-            // FIXED 2: INSERT YOUR API TOKEN HERE
-            // Go to Staffbase Settings -> API Access -> Create Token
-            apiToken: 'YOUR_API_TOKEN_HERE', 
-            
-            enableDemoFallback: false // Turn this off to see real errors
+            // Your Base64 Encoded Token
+            apiToken: 'NjgzNjc4ZDVjYTRjODk3MThhZjQxMDRiOl1TT3swcl8yKkRsMlNbcVpRaXY4RSwwKzdZbSE3KChXcVMsXkpZYlN5cTFuTW9FKUY2UyQkLEoqUy5ZRkRCK30='
         };
 
         // --- UI Logic ---
@@ -604,25 +600,21 @@
         // --- Notification Service ---
         const NotificationService = {
             async sendSwapRequest() {
-                
-                // FIXED 3: Payload updated for public API structure
-                // Note: 'accessorIds' is usually internal. Public API often uses 'recipients'.
-                // If your API call fails with 400 Bad Request, change 'accessorIds' to 'recipients'.
                 const payload = {
-                    "recipients": [ "68362d155187c875bbb106d8" ], // Ensure this ID is valid
+                    // Public API uses 'recipients' (array of IDs) or 'groups'
+                    "recipients": [ "68362d155187c875bbb106d8" ], 
                     "content": {
-                        "en_US": { "title": "Shift Swap", "text": "Shift Swap Initiated" },
-                        "de_DE": { "title": "Shift Swap", "text": "New Learning Module available" }
+                        "en_US": { "title": "Shift Swap Request", "text": "A new shift swap request has been initiated." },
+                        "de_DE": { "title": "Schichttausch", "text": "Eine neue Schichttausch-Anfrage wurde initiiert." }
                     }
                 };
 
-                // FIXED 4: Added Authorization Header logic
                 const response = await fetch(CONFIG.apiUrl, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        // This creates the Basic Auth header required by Staffbase
-                        'Authorization': 'Basic ' + btoa(CONFIG.apiToken + ':') 
+                        // Since your token is already Base64 encoded, we use it directly here
+                        'Authorization': 'Basic ' + CONFIG.apiToken 
                     },
                     body: JSON.stringify(payload)
                 });
@@ -653,20 +645,12 @@
             } catch (error) {
                 console.error("Swap Request Failed:", error);
 
-                // 4. Fallback Handling
-                if (CONFIG.enableDemoFallback && (error.message.includes('Failed to fetch') || error.message.includes('403') || error.message.includes('401'))) {
-                     console.warn("Using Demo Fallback.");
-                     handleSuccess();
-                     return;
-                }
-
-                // 5. Error State
+                // 4. Error State
                 swapBtn.disabled = false;
                 swapBtn.innerHTML = `
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
                     <span>Retry Request</span>
                 `;
-                // Show actual error for debugging
                 statusMsg.innerText = 'Request failed. Check console for details.';
                 statusMsg.className = 'status-message status-error';
             }
